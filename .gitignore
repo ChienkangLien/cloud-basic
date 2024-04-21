@@ -3,3 +3,15 @@ cloud2024/.classpath
 cloud2024/.project
 cloud2024/.settings/
 cloud2024/target/
+cloud2024/cloud-api-commons/.classpath
+cloud2024/cloud-api-commons/.project
+cloud2024/cloud-api-commons/.settings/
+cloud2024/cloud-api-commons/target/
+cloud2024/cloud-consumer-order80/.classpath
+cloud2024/cloud-consumer-order80/.project
+cloud2024/cloud-consumer-order80/.settings/
+cloud2024/cloud-consumer-order80/target/
+cloud2024/cloud-provider-payment8001/.classpath
+cloud2024/cloud-provider-payment8001/.project
+cloud2024/cloud-provider-payment8001/.settings/
+cloud2024/cloud-provider-payment8001/target/

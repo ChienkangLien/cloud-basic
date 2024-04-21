@@ -1,0 +1,15 @@
+server:
+  port: 8001
+
+spring:
+#  profiles:
+#    active: prod #多環境配置dev/prod，不寫就是默認default值
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/db2024?serverTimezone=Asia/Taipei
+    username: root
+    password: password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    show-sql: true
