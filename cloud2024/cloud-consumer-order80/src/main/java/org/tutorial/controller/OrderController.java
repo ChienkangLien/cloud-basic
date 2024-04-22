@@ -1,6 +1,11 @@
 package org.tutorial.controller;
 
+import java.util.List;
+import java.util.StringJoiner;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.ServiceInstance;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +25,7 @@ public class OrderController {
 
 	// 使用服務註冊中心上的微服務名稱
 	public static final String PAYMENTSRV_URL = "http://cloud-payment-service";
-	
+
 	@Autowired
 	private RestTemplate restTemplate;
 
@@ -50,5 +55,34 @@ public class OrderController {
 	@GetMapping("/pay/getAll")
 	public ResultData getPayListInfo() {
 		return restTemplate.getForObject(PAYMENTSRV_URL + "/pay/getAll", ResultData.class);
+	}
+
+	// 驗證LoadBalancer
+	@GetMapping(value = "/get/info")
+	public String getInfoByConsul() {
+		return restTemplate.getForObject(PAYMENTSRV_URL + "/pay/get/info", String.class);
+	}
+
+	// 驗證動態獲取所有上線服務列表
+	@Autowired
+	private DiscoveryClient discoveryClient;
+
+	@GetMapping("/discovery")
+	public String discovery() {
+		List<String> services = discoveryClient.getServices();
+		for (String service : services) {
+			System.out.println(service);
+		}
+		System.out.println("=================");
+		List<ServiceInstance> instances = discoveryClient.getInstances("cloud-payment-service");
+		for (ServiceInstance instance : instances) {
+			StringJoiner joiner = new StringJoiner("\t");
+			joiner.add(instance.getServiceId());
+			joiner.add(instance.getHost());
+			joiner.add(instance.getPort() + "");
+			joiner.add(instance.getUri() + "");
+			System.out.println(joiner);
+		}
+		return instances.get(0).getServiceId() + ":" + instances.get(0).getPort();
 	}
 }

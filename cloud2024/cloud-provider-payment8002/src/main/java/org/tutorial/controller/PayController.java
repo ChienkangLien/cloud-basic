@@ -68,7 +68,6 @@ public class PayController {
 		return ResultData.success(list);
 	}
 
-	// 驗證分布式配置
 	@Value("${server.port}")
 	private String port;
 

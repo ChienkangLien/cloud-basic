@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: cloud-payment-service
+    
+  ##spring cloud consul for service discovery 
+  cloud:
+    consul:
+      host: localhost
+      port: 8500
+      discovery:
+        service-name: ${spring.application.name}
+        heartbeat:
+          enabled: true
+  ##spring cloud consul for service discovery
+      config:
+        profile-separator: '-' # 默認為","、改成常見的"-"
+        format: YAML
