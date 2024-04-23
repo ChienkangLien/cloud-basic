@@ -1,0 +1,33 @@
+server:
+  port: 80
+  
+spring:
+  application:
+    name: cloud-consumer-openfeign-order
+    
+  ##spring cloud consul for service discovery 
+  cloud:
+    consul:
+      host: localhost
+      port: 8500
+      discovery:
+        service-name: ${spring.application.name}
+        heartbeat:
+          enabled: true
+          
+    ##超時控制
+    openfeign:
+      client:
+        config:
+          ##全局
+          default:
+            ##連接超時
+            connect-timeout: 5000
+            ##讀取超時
+            read-timeout: 5000
+          ##指定服務
+          cloud-payment-service:
+            ##連接超時
+            connect-timeout: 10000
+            ##讀取超時
+            read-timeout: 10000  

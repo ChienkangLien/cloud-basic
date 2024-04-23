@@ -2,12 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>org.example</groupId>
-	<artifactId>cloud2024</artifactId>
+	<groupId>org.example.origin</groupId>
+	<artifactId>cloud2024-origin</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
-	<name>cloud2024</name>
+	<name>cloud2024-origin</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -60,11 +60,8 @@
 	</dependencyManagement>
 
 	<modules>
-		<module>cloud-provider-payment8001</module>
-		<module>cloud-provider-payment8002</module>
-		<module>cloud-consumer-order80</module>
-		<module>cloud-api-commons</module>
-		<module>cloud-consumer-feign-order80</module>
+		<module>cloud-provider-payment8001-origin</module>
+		<module>cloud-consumer-order80-origin</module>
+		<module>cloud-api-commons-origin</module>
 	</modules>
-
 </project>
