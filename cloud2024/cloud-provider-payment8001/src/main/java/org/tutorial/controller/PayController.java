@@ -61,6 +61,7 @@ public class PayController {
 
 		// 驗證OpenFeign 超時控制，默認60秒，這裡睡62秒會拋出SocketTimeoutException：Read timed out
 		if (id == 1) {
+			System.out.println("調用8001 id 1");
 			try {
 				TimeUnit.SECONDS.sleep(62);
 			} catch (InterruptedException e) {

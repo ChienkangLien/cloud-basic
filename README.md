@@ -1,4 +1,4 @@
-# Spring Cloud
+# cloud-basic
 在此範例選用版本
 
 |  | Version |
@@ -79,7 +79,7 @@ Consul  是一個開源的分布式服務發現和配置管理系統，由HashiC
 
 
 ## LoadBalancer
-為什麼不再使用Ribbon：Ribbon 也停止更新
+為什麼不再使用Ribbon：Ribbon 也停止更新。
 
 Spring Cloud LoadBalancer 是Spring Cloud 官方提供的一個開源的客戶端負載均衡器，包含在Spring Cloud Commons 中。相較於Ribbon，Spring Cloud LoadBalancer 不僅支持RestTemplate、還支持WebClient(Spring Web Flux 中提供的功能，實現響應式異步請求)。
 
@@ -104,7 +104,7 @@ OpenFeign 是一個聲明式web 服務客戶端，只需創建一個Rest 接口�
 * 可插拔的註解支持，包括Feign 註解和JAX-RS 註解
 * 支持可插拔的HTTP 編碼器和解碼器
 * 支持Sentinel 和它的Fallback
-* 支持Spring Cloud LoadBalancer 的負載均衡
+* 天然支持Spring Cloud LoadBalancer 的負載均衡(不需要像cloud-consumer-order80 加註`@LoadBalanced`)
 * 支持HTTP 請求和響應的壓縮
 
 ### 實作
@@ -117,5 +117,39 @@ OpenFeign 是一個聲明式web 服務客戶端，只需創建一個Rest 接口�
 6. 驗證：啟動Consul、微服務8001、微服務8002、feign-order80
 
 ### 高級特性
-* 超時控制：默認60秒拋出超時錯誤，驗證 getById id=1；可進一步從YML 配置connectTimeout/readTimeout。YML(cloud-consumer-feign-order80)、指定
-* 重試機制：
+* 超時控制：默認60秒拋出超時錯誤，透過getById id=1 驗證(8001/8002 Controller 需改寫)；可進一步從YML 配置connectTimeout/readTimeout。YML(cloud-consumer-feign-order80)
+* 重試機制：默認關閉，開啟要新增FeignConfig(cloud-consumer-feign-order80)，一樣透過getById id=1 驗證
+* 默認HttpClient 可以修改：默認使用JDK 自帶的HttpURLConnection 發送HTTP 請求，官網建議替換性能佳的Apache HttpClient5。POM 引入`httpclient5`、`feign-hc5`，YML 配置`spring.cloud.openfeign.httpclient.hc5.enabled`
+* 請求/響應壓縮(GZIP)：YML 配置`spring.cloud.openfeign.compression`
+* 日誌紀錄：級別NONE(默認)/BASIC/HEADERS/FULL，修改FeignConfig，YML 配置`logging.level`
+
+## Resilience4J
+為什麼不再使用Hystrix：Hystrix 也停止更新。
+
+斷路器本身是一種開關裝置，當某個服務單元發生故障，通過斷路器的故障監控，向調用方返回一個符合預期的、可處理的備選響應(FallBack)，而不是長時間的等待或是拋出調用方無法處理的異常。
+
+* 服務熔斷：好比保險絲，當服務出現故障或超時時，熔斷器會中斷對該服務的請求，防止故障向下游系統擴散，同時還可以提供一個快速失敗的回應
+* 服務降級：當系統負載過高或發生故障時，降級策略可以將一些非關鍵功能關閉或切換到低資源消耗的實現，以保證核心功能的穩定運行
+* 服務限流：限制對服務的訪問，防止過多的請求壓垮服務
+* 服務限時：設置請求的最大處理時間，防止長時間的等待，並使得服務可以及時釋放資源
+* 服務預熱：在系統啟動時，預先加載一些必要的資源或數據，以提高系統的性能和響應速度
+
+Spring Cloud Circuit Breaker 是介面、用於實現在分布式系統中的服務熔斷功能，實現有Resilience4J(功能更完備) 及Spring Retry。
+Circuit Breaker包含三個主要狀態和兩個特殊狀態：
+1. Closed（關閉）：初始狀態，此時調用會正常進行，Circuit Breaker會監控調用的成功率(基於調用數量或是時間)。
+2. Open（開啟）：當失敗率達到一定閾值時，Circuit Breaker會切換到開啟狀態，此時調用會立即失敗，不會執行實際的調用操作，而是直接返回錯誤。
+3. Half-Open（半開啟）：在一段時間後，Circuit Breaker會進入半開啟狀態，此時會允許部分調用進行，如果這些調用成功，則Circuit Breaker會重新切換到關閉狀態；如果仍然有調用失敗，則會繼續保持開啟狀態。
+4. Disable(禁用)：始終允許訪問。
+5. Force-Open(強制開啟)：始終拒絕訪問。
+
+主要的CircuitBreaker 配置屬性
+| 配置屬性                                          | 默認值                                                       | 描述                                                         |
+| ------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| failure-rate-threshold                              | 50                                                           | 以百分比配置失敗率閾值。當失敗率等於或大於閾值時，斷路器狀態並關閉變為開啟，並進行服務降級。 |
+| slow-call-rate-threshold                             | 100                                                          | 以百分比的方式配置，斷路器把調用時間大於`slowCallDurationThreshold`的調用視為滿調用，當慢調用比例大於等於閾值時，斷路器開啟，並進行服務降級。 |
+| slow-call-duration-threshold                         | 60000 [ms]                                                   | 配置調用時間的閾值，高於該閾值的呼叫視為慢調用。 |
+| permitted-number-of-calls-in-half-open-state             | 10                                                           | 斷路器在半開狀態下允許通過的調用次數。                       |
+| sliding-window-type                                 | COUNT_BASED                                                  | 配置滑動窗口的類型，可以是count-based或time-based。如果滑動窗口類型是COUNT_BASED，將會統計記錄最近`slidingWindowSize`次調用的結果。如果是TIME_BASED，將會統計記錄最近`slidingWindowSize`秒的調用結果。 |
+| sliding-window-size                                 | 100                                                          | 配置滑動窗口的大小。                                         |
+| minimum-number-of-calls                              | 100                                                          | 斷路器計算失敗率或慢調用率之前所需的最小調用數（每個滑動窗口周期）。例如，如果minimumNumberOfCalls為10，則必須至少記錄10個調用，然後才能計算失敗率。 |
+| wait-duration-in-open-state                           | 60000 [ms]                                                   | 斷路器從OPEN到HALF_OPEN應等待的時間。                         |

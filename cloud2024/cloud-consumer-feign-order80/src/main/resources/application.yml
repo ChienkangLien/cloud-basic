@@ -28,6 +28,28 @@ spring:
           ##指定服務
           cloud-payment-service:
             ##連接超時
-            connect-timeout: 10000
+            connect-timeout: 2000
             ##讀取超時
-            read-timeout: 10000  
+            read-timeout: 2000
+            
+      ##Apache HttpClient5
+      httpclient:
+        hc5:
+          enabled: true
+          
+      ##請求/響應壓縮
+      compression:
+        request:
+          enabled: true
+          min-request-size: 2048 #最小觸發壓縮的大小
+          mime-types: text/xml,application/xml,application/json #觸發壓縮的數據類型
+        response:
+          enabled: true
+          
+##feign日誌僅支持DEGUG級別(logging.level+含有@FeignClient註解的完整包名帶接口名+debug)
+logging:
+  level:
+    org:
+      tutorial:
+        apis:
+          PayFeignApi: debug

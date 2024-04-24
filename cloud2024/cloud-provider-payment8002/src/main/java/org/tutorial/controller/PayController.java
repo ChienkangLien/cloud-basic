@@ -1,6 +1,7 @@
 package org.tutorial.controller;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,17 @@ public class PayController {
 	@GetMapping("/get/{id}")
 	@Operation(summary = "查詢單個", description = "查詢支付流水, 參數是Id")
 	public ResultData<Pay> getById(@PathVariable("id") Integer id) {
+
+		// 驗證OpenFeign 超時控制，默認60秒，這裡睡62秒會拋出SocketTimeoutException：Read timed out
+		if (id == 1) {
+			System.out.println("調用8002 id 1");
+			try {
+				TimeUnit.SECONDS.sleep(62);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+
 		Pay pay = payService.getById(id);
 		return ResultData.success(pay);
 	}
