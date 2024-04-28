@@ -59,7 +59,7 @@ Consul  是一個開源的分布式服務發現和配置管理系統，由HashiC
 ### 實作 分布式配置
 在cloud-provider-payment8001 驗證有效即可
 1. POM：引用`spring-cloud-starter-consul-config`、`spring-cloud-starter-bootstrap`
-2. 新增配置文件bootstrap.yml(優先級大於application.yml)：將application.yml 中關於spring cloud 內容一併移過去
+2. 新增配置文件bootstrap.yml(優先級大於application.yml)：確保在應用程式初始化階段就能夠正確加載外部配置，將application.yml 中關於spring cloud 內容一併移過去
 3. consul 服務器key/value 配置：Key / Values 中建立三個文件 config/cloud-payment-service/data、config/cloud-payment-service-prod/data、config/cloud-payment-service-dev/data，對應YML 中spring.profiles.active 的值
 4. 啟動類：註解`@RefreshScope`
 5. Controller 驗證
@@ -117,8 +117,9 @@ OpenFeign 是一個聲明式web 服務客戶端，只需創建一個Rest 接口�
 6. 驗證：啟動Consul、微服務8001、微服務8002、feign-order80
 
 ### 高級特性
-* 超時控制：默認60秒拋出超時錯誤，透過getById id=1 驗證(8001/8002 Controller 需改寫)；可進一步從YML 配置connectTimeout/readTimeout。YML(cloud-consumer-feign-order80)
-* 重試機制：默認關閉，開啟要新增FeignConfig(cloud-consumer-feign-order80)，一樣透過getById id=1 驗證
+以下操作基本在cloud-consumer-feign-order80
+* 超時控制：默認60秒拋出超時錯誤，透過getById id=1 驗證(8001/8002 Controller 需改寫)；可進一步從YML 配置connectTimeout/readTimeout。
+* 重試機制：默認關閉，開啟要新增FeignConfig，一樣透過getById id=1 驗證
 * 默認HttpClient 可以修改：默認使用JDK 自帶的HttpURLConnection 發送HTTP 請求，官網建議替換性能佳的Apache HttpClient5。POM 引入`httpclient5`、`feign-hc5`，YML 配置`spring.cloud.openfeign.httpclient.hc5.enabled`
 * 請求/響應壓縮(GZIP)：YML 配置`spring.cloud.openfeign.compression`
 * 日誌紀錄：級別NONE(默認)/BASIC/HEADERS/FULL，修改FeignConfig，YML 配置`logging.level`
@@ -132,9 +133,10 @@ OpenFeign 是一個聲明式web 服務客戶端，只需創建一個Rest 接口�
 * 服務降級：當系統負載過高或發生故障時，降級策略可以將一些非關鍵功能關閉或切換到低資源消耗的實現，以保證核心功能的穩定運行
 * 服務限流：限制對服務的訪問，防止過多的請求壓垮服務
 * 服務限時：設置請求的最大處理時間，防止長時間的等待，並使得服務可以及時釋放資源
-* 服務預熱：在系統啟動時，預先加載一些必要的資源或數據，以提高系統的性能和響應速度
 
 Spring Cloud Circuit Breaker 是介面、用於實現在分布式系統中的服務熔斷功能，實現有Resilience4J(功能更完備) 及Spring Retry。
+
+### 熔斷
 Circuit Breaker包含三個主要狀態和兩個特殊狀態：
 1. Closed（關閉）：初始狀態，此時調用會正常進行，Circuit Breaker會監控調用的成功率(基於調用數量或是時間)。
 2. Open（開啟）：當失敗率達到一定閾值時，Circuit Breaker會切換到開啟狀態，此時調用會立即失敗，不會執行實際的調用操作，而是直接返回錯誤。
@@ -153,3 +155,103 @@ Circuit Breaker包含三個主要狀態和兩個特殊狀態：
 | sliding-window-size                                 | 100                                                          | 配置滑動窗口的大小。                                         |
 | minimum-number-of-calls                              | 100                                                          | 斷路器計算失敗率或慢調用率之前所需的最小調用數（每個滑動窗口周期）。例如，如果minimumNumberOfCalls為10，則必須至少記錄10個調用，然後才能計算失敗率。 |
 | wait-duration-in-open-state                           | 60000 [ms]                                                   | 斷路器從OPEN到HALF_OPEN應等待的時間。                         |
+
+#### 實作 COUNT_BASED(記數的滑動窗口)
+1. 修改cloud-provide-paymenr8001：新增PayCircuitController
+2. 修改cloud-api-commons PayFeignApi接口
+3. 修改cloud-consumer-feign-order80：POM 引入`spring-cloud-starter-circuitbreaker-resilience4j`、`spring-boot-starter-aop`，YAM 配置`spring.cloud.openfeign.circuitbreaker`、`resilience4j`，新增OrderCircuitController
+4. 驗證：啟用feign80/8001，circuit/get/1與circuit/get/-1
+
+#### 實作 TIME_BASED(時間的滑動窗口)
+1. 修改cloud-consumer-feign-order80：YAM 配置`resilience4j`，新增OrderCircuitController
+2. 為避免影響驗證結果，關閉cloud-consumer-feign-order80 FeignConfig 重試機制
+3. 驗證：circuit/get/1與circuit/get/9999
+
+### 隔離
+Bulkhead 用來限制對於下游服務的最大併發數量的限制，即依賴隔離和負載保護。Resilience4j提供了如下兩種隔離的實現方式：
+* SemaphoreBulkhead 使用了信號量：當一個線程要訪問受保護的資源或服務時，首先要試圖獲得信號量。如果信號量已滿（表示已經達到了最大並發訪問數量），則這個線程會被阻塞，直到有其他線程釋放了信號量。當一個線程訪問完畢後，會釋放信號量，讓其他線程可以訪問該資源或服務。
+* FixedThreadPoolBulkhead 使用了有界隊列和固定大小線程池
+
+#### 實作 SemaphoreBulkhead
+1. 修改cloud-provide-paymenr8001：修改PayCircuitController
+2. 修改cloud-api-commons PayFeignApi接口
+3. 修改cloud-consumer-feign-order80：POM 引入`resilience4j-bulkhead`，YAM 配置`resilience4j`，修改OrderCircuitController
+4. 驗證：bulkhead/get/1與bulkhead/get/9999
+
+#### 實作 FixedThreadPoolBulkhead
+1. 修改cloud-consumer-feign-order80：YAM 配置`resilience4j`，修改OrderCircuitController
+2. 驗證：bulkhead/get/1與bulkhead/get/2與bulkhead/get/3
+
+### 限流
+常見的限流算法有以下幾種：
+1. 固定窗口算法（Fixed Window Algorithm）：將時間分為固定大小的窗口，例如1秒或1分鐘，每個窗口內的請求數不能超過設定的閾值。
+2. 滑動窗口算法（Sliding Window Algorithm）：與固定窗口算法類似，但滑動窗口會保留過去一段時間內的所有請求記錄，並動態計算窗口內的請求數。
+3. 令牌桶算法（Token Bucket Algorithm）：系統會按照固定的速率往令牌桶中放入令牌，每個請求需要消耗一個令牌，當令牌桶中沒有足夠的令牌時，請求被拒絕。
+4. 漏桶算法（Leaky Bucket Algorithm）：類似於令牌桶算法，但漏桶算法是將請求添加到漏桶中，並以固定速率從漏桶中排出請求，當漏桶滿了時，多餘的請求被拒絕。
+
+#### 實作
+1. 修改cloud-provide-paymenr8001：修改PayCircuitController
+2. 修改cloud-api-commons PayFeignApi接口
+3. 修改cloud-consumer-feign-order80：POM 引入`resilience4j-ratelimiter`，YAM 配置`resilience4j`，修改OrderCircuitController
+4. 驗證：bulkhead/get/1
+
+## Micrometer
+為什麼不再使用Sleuth：Sleuth 也停止更新。
+
+Micrometer 提供了一套完整的分布式鏈路追蹤收集(Distributed Tracing)
+的解決方案且兼容支持了Zipkin 的數據展現。
+為請求生成一個 Trace ID，Trace ID 是一串唯一標識符，用於唯一標識這個請求，然後在請求的頭信息中添加 Trace ID 和 Span ID ，最後將請求發送到相應的服務端
+
+### Zipkin
+Zipkin 是一種分布式鏈路跟蹤系統Web 圖形化的工具。
+1. 官網下載jar，運行`java -jar zipkin-server-3.3.0-exec.jar`
+2. 訪問 http://localhost:9411/
+
+### 實作
+1. 父工程POM：引入系列包
+
+| 依賴 | 作用 |
+| -------- | -------- |
+| micrometer-tracing-bom | 導入鏈路追蹤版本中心 |
+| micrometer-tracing | 指標追蹤 |
+| micrometer-tracing-bridge-brave | 與分布式追蹤工具Brave 集成，已收集應用程式分布式追蹤數據 |
+| micrometer-observation | 收集應用程式的度量數據 |
+| feign-micrometer | 收集客戶端請求的度量數據 |
+| zipkin-reporter-brave | 將Brave 追蹤數據報告到Ziplin 追蹤系統 |
+2. cloud-provider-payment8001 POM：引入系列包(除了`micrometer-tracing-bom`)、YML配置：`management`、新增PayMicrometerController
+3. cloud-api-commons 修改PayFeignApi
+4. cloud-consumer-feign-order80 POM：引入系列包(除了`micrometer-tracing-bom`)、YML配置：`management`、新增OrderMicrometerController
+5. 驗證：啟動80/8001、Zipkin、Consul，micrometer/get/1，訪問http://127.0.0.1:9411/
+
+## Gateway
+為什麼不再使用Zuul：Zuul 也停止更新。
+
+Spring Cloud Gateway 是Spring 生態系統之上構建的API 網關服務，提供統一的API 路由管理方式。核心是一系列的過濾器，將客戶端發送的請求轉發(路由)到對應的微服務。
+Spring Cloud Gateway是加在整個微服務最前沿的防火墻和代理器，隱藏微服務節點IP 端口信息，從而加強安全保護。本身也是一個微服務，需要注冊進服務注冊中心。
+功能：
+* 反向代理
+* 鑒權
+* 流量控制
+* 熔斷
+* 日志監控 
+
+核心：
+1. Route(路由)：路由是構建網關的基本模塊，它由ID、目標URI、一系列的斷言和過濾器組成，如果斷言為true 則匹配該路由。
+2. Predicate(斷言)：參考的是Java8 的java.util.function.Predicate，開發人員可以匹配HTTP 請求中的所有內容（例如請求頭或請求參數），如果請求與斷言相匹配則進行路由。
+3. Filter(過濾)：指的是Spring 框架中GatewayFilter 的實例，使用過濾器，可以在請求被路由前或者之後對請求進行修改。在"pre" 類型的過濾器可以做參數校驗、權限校驗、流量監控、日志輸出、協議轉換等；在"post" 類型的過濾器中可以做響應內容、響應頭的修改，日志的輸出，流量監控等。
+
+客戶端向 Spring Cloud Gateway 發出請求，然後在Gateway Handler Mapping 中找到與請求相匹配的路由，將其發送到Gateway Web Handler。Handler 再通過指定的過濾器鏈(可能會在發送代理請求前後(pre/post)執行業務邏輯)來將請求發送到實際的服務然後返回。
+
+### 實作 Route
+1. 建立cloud-gateway9527，POM 引入`spring-cloud-starter-consul-discovery`、`spring-cloud-starter-gateway`，YUM 配置`spring.cloud.consul`，新增啟動類
+2. 驗證：啟動9527、Consul
+
+### 實作 映射8001
+1. cloud-provider-payment8001 新建PayGatewayController
+2. cloud-gateway9527 YUM 配置`spring.cloud.gateway`
+3. 驗證：啟動8001、訪問9527/pay/gateway/info
+4. cloud-api-commons 修改PayFeignApi：對應方法和`@FeignClient`
+5. cloud-consumer-feign-order80 新建OrderGatewayController
+6. 再驗證：啟動80、訪問80/feign/gateway/pay/info
+7. cloud-gateway9527 YUM 修改`spring.cloud.gateway.routes.uri` 以服務名來動態獲取，如此即便cloud-payment-service 更換路徑也可以成功路由
+8. 再驗證：cloud-provider-payment8001 修改port 號重啟、訪問80/feign/gateway/pay/info
