@@ -12,7 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.tutorial.entities.PayDTO;
 import org.tutorial.resp.ResultData;
 
-@FeignClient(value = "cloud-payment-service")
+//@FeignClient(value = "cloud-payment-service")
+@FeignClient(value = "cloud-gateway") // for spring cloud gateway
 public interface PayFeignApi {
 
 	@PostMapping("/pay/add")
@@ -34,4 +35,26 @@ public interface PayFeignApi {
 	@GetMapping("/pay/get/info")
 	ResultData<String> getInfo();
 
+	// 驗證Resilience4J 熔斷
+	@GetMapping("/pay/circuit/{id}")
+	ResultData<String> myCircuit(@PathVariable("id") Integer id);
+	
+	// 驗證Resilience4J 隔離
+	@GetMapping("/pay/bulkhead/{id}")
+	ResultData<String> myBulkhead(@PathVariable("id") Integer id);
+	
+	// 驗證Resilience4J 限流
+	@GetMapping("/pay/rateLimit/{id}")
+	ResultData<String> myRateLimit(@PathVariable("id") Integer id);
+	
+	// 驗證Micrometer
+	@GetMapping("/pay/micrometer/{id}")
+	ResultData<String> myMicrometer(@PathVariable("id") Integer id);
+	
+	// 驗證Gateway
+    @GetMapping("/pay/gateway/get/{id}")
+    ResultData<PayDTO> getById4Gateway(@PathVariable("id") Integer id);
+
+    @GetMapping("/pay/gateway/info")
+    ResultData<String> getInfo4Gateway();
 }

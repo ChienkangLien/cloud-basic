@@ -13,3 +13,12 @@ spring:
 
   jpa:
     show-sql: true
+    
+# zipkin
+management:
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+  tracing:
+    sampling:
+      probability: 1.0 #採樣率默認為0.1(0.1就是10次只能有一次被記錄下來)，值越大收集越即時。

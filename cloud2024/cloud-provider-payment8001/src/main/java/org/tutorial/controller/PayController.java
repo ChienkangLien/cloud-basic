@@ -21,9 +21,7 @@ import org.tutorial.service.PayService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @RestController
 @RequestMapping("/pay")
 @Tag(name = "支付微服務模塊", description = "訂單CRUD")

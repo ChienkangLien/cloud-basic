@@ -18,6 +18,10 @@
 		<spring.cloud.alibaba.version>2022.0.0.0-RC2</spring.cloud.alibaba.version>
 		<swagger3.version>2.2.0</swagger3.version>
 		<hutool.version>5.8.22</hutool.version>
+		<micrometer-tracing.version>1.2.0</micrometer-tracing.version>
+		<micrometer-observation.version>1.12.0</micrometer-observation.version>
+		<feign-micrometer.version>12.5</feign-micrometer.version>
+		<zipkin-reporter-brave.version>2.17.0</zipkin-reporter-brave.version>
 	</properties>
 
 	<dependencyManagement>
@@ -56,6 +60,39 @@
 				<artifactId>hutool-all</artifactId>
 				<version>${hutool.version}</version>
 			</dependency>
+			<!--micrometer-tracing �t�C�]  -->
+			<dependency>
+				<groupId>io.micrometer</groupId>
+				<artifactId>micrometer-tracing-bom</artifactId>
+				<version>${micrometer-tracing.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>io.micrometer</groupId>
+				<artifactId>micrometer-tracing</artifactId>
+				<version>${micrometer-tracing.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.micrometer</groupId>
+				<artifactId>micrometer-tracing-bridge-brave</artifactId>
+				<version>${micrometer-tracing.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.micrometer</groupId>
+				<artifactId>micrometer-observation</artifactId>
+				<version>${micrometer-observation.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.github.openfeign</groupId>
+				<artifactId>feign-micrometer</artifactId>
+				<version>${feign-micrometer.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.zipkin.reporter2</groupId>
+				<artifactId>zipkin-reporter-brave</artifactId>
+				<version>${zipkin-reporter-brave.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
@@ -65,6 +102,7 @@
 		<module>cloud-consumer-order80</module>
 		<module>cloud-api-commons</module>
 		<module>cloud-consumer-feign-order80</module>
+		<module>cloud-gateway9527</module>
 	</modules>
 
 </project>
