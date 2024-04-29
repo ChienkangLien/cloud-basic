@@ -27,6 +27,18 @@
 ## Consul
 為什麼要引入服務註冊中心：實現微服務之間的動態註冊與發現。
 
+流程：
+1. 服務啟動時就會注冊自己的服務信息（服務名、IP、端口）到注冊中
+2. 調用者可以從注冊中心訂閱想要的服務，獲取服務對應的實例列表（1個服務可能多實例部署）
+3. 調用者自己對實例列表負載均衡，挑選一個實例
+4. 調用者向該實例發起遠程調用
+
+當服務提供者的實例宕機或者啟動新實例時，調用者如何得知呢？
+1. 服務提供者會定期向注冊中心發送請求，報告自己的健康狀態（心跳請求）
+2. 當注冊中心長時間收不到提供者的心跳時，會認為該實例宕機，將其從服務的實例列表中剔除
+3. 當服務有新實例啟動時，會發送注冊服務請求，其信息會被記錄在注冊中心的服務實例列表
+4. 當注冊中心服務列表變更時，會主動通知微服務，更新本地服務列表
+
 
 | 組件 | 語言 | CAP | 服務健康檢查 | 對外暴露接口 | spring cloud 集成 |
 | -------- | -------- | -------- | -------- | -------- | -------- |
@@ -204,7 +216,7 @@ Micrometer 提供了一套完整的分布式鏈路追蹤收集(Distributed Traci
 
 ### Zipkin
 Zipkin 是一種分布式鏈路跟蹤系統Web 圖形化的工具。
-1. 官網下載jar，運行`java -jar zipkin-server-3.3.0-exec.jar`
+1. 官網下載jar(3.3.0)，運行`java -jar zipkin-server-3.3.0-exec.jar`
 2. 訪問 http://localhost:9411/
 
 ### 實作
@@ -227,7 +239,7 @@ Zipkin 是一種分布式鏈路跟蹤系統Web 圖形化的工具。
 為什麼不再使用Zuul：Zuul 也停止更新。
 
 Spring Cloud Gateway 是Spring 生態系統之上構建的API 網關服務，提供統一的API 路由管理方式。核心是一系列的過濾器，將客戶端發送的請求轉發(路由)到對應的微服務。
-Spring Cloud Gateway是加在整個微服務最前沿的防火墻和代理器，隱藏微服務節點IP 端口信息，從而加強安全保護。本身也是一個微服務，需要注冊進服務注冊中心。
+Spring Cloud Gateway是加在整個微服務最前沿的防火牆和代理器，隱藏微服務節點IP 端口信息，從而加強安全保護。本身也是一個微服務，需要注冊進服務注冊中心。
 功能：
 * 反向代理
 * 鑒權
@@ -240,18 +252,69 @@ Spring Cloud Gateway是加在整個微服務最前沿的防火墻和代理器，
 2. Predicate(斷言)：參考的是Java8 的java.util.function.Predicate，開發人員可以匹配HTTP 請求中的所有內容（例如請求頭或請求參數），如果請求與斷言相匹配則進行路由。
 3. Filter(過濾)：指的是Spring 框架中GatewayFilter 的實例，使用過濾器，可以在請求被路由前或者之後對請求進行修改。在"pre" 類型的過濾器可以做參數校驗、權限校驗、流量監控、日志輸出、協議轉換等；在"post" 類型的過濾器中可以做響應內容、響應頭的修改，日志的輸出，流量監控等。
 
-客戶端向 Spring Cloud Gateway 發出請求，然後在Gateway Handler Mapping 中找到與請求相匹配的路由，將其發送到Gateway Web Handler。Handler 再通過指定的過濾器鏈(可能會在發送代理請求前後(pre/post)執行業務邏輯)來將請求發送到實際的服務然後返回。
+客戶端向Spring Cloud Gateway 發出請求，然後在Gateway Handler Mapping 中找到與請求相匹配的路由，將其發送到Gateway Web Handler。Handler 再通過指定的過濾器鏈(可能會在發送代理請求前後(pre/post)執行業務邏輯)來將請求發送到實際的服務然後返回。
 
-### 實作 Route
+### 實作 引入
 1. 建立cloud-gateway9527，POM 引入`spring-cloud-starter-consul-discovery`、`spring-cloud-starter-gateway`，YUM 配置`spring.cloud.consul`，新增啟動類
 2. 驗證：啟動9527、Consul
 
-### 實作 映射8001
+### 實作 Route
 1. cloud-provider-payment8001 新建PayGatewayController
-2. cloud-gateway9527 YUM 配置`spring.cloud.gateway`
+2. cloud-gateway9527 YUM 配置`spring.cloud.gateway.routes`
 3. 驗證：啟動8001、訪問9527/pay/gateway/info
 4. cloud-api-commons 修改PayFeignApi：對應方法和`@FeignClient`
 5. cloud-consumer-feign-order80 新建OrderGatewayController
 6. 再驗證：啟動80、訪問80/feign/gateway/pay/info
 7. cloud-gateway9527 YUM 修改`spring.cloud.gateway.routes.uri` 以服務名來動態獲取，如此即便cloud-payment-service 更換路徑也可以成功路由
 8. 再驗證：cloud-provider-payment8001 修改port 號重啟、訪問80/feign/gateway/pay/info
+
+### 實作 Predicate
+兩種配置方式：shortcuts、fully expanded arguments
+```yaml=
+spring:
+  cloud:
+    gateway:
+      routes:
+      #shortcuts
+      - id: after_route
+        uri: https://example.org
+        predicates:
+        - Cookie=mycookie,mycookievalue
+      #fully expanded arguments
+      - id: after_route
+        uri: https://example.org
+        predicates:
+        - name: Cookie
+          args:
+            name: mycookie
+            regexp: mycookievalue
+```
+1. cloud-gateway9527 YUM 配置`spring.cloud.gateway.routes.predicate`
+2. 驗證：9527/pay/gateway/pay/get/2
+
+#### 實作 自定義斷言
+繼承AbstractRoutePredicateFactory 抽象類或是實現RoutePredicateFactory 介面，類名以RoutePredicateFactory 結尾。
+1. cloud-gateway9527 新增MyRoutePredicateFactory
+2. YML 配置`spring.cloud.gateway.routes.predicate.My`
+3. 驗證：9527/pay/gateway/pay/get/2?userType=gold
+
+### 實作 Filter
+* 全局默認過濾器Global Filters：Gateway 默認已有的直接使用即可，主要作用於所有的路由，不需要在配置文件中配置，作用在所有的路由上，實現GlobalFilter接口即可
+* 單一內置過濾器GatewayFilter：也可以稱為網關過濾器，這種過濾器主要是作用於單一路由或者某個路由分組，總共有幾十個所以接下來只實作常見的
+
+#### AddRequestHeader
+1. cloud-provider-payment8001 修改PayGatewayController
+2. cloud-gateway9527 YUM 配置`spring.cloud.gateway.routes. - id: pay_filter`
+3. 驗證：9527/pay/gateway/filter?customerName=qq、9527/pay/gateway/filter?customerId=654321&customerName=qq
+
+
+## Nacos
+### 安裝
+### 實作 引入
+1. 建立cloudalibaba-provider-payment9001 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`cloud-api-commons`，YML 配置`spring.cloud.nacos`，啟動類`@EnableDiscoveryClient`，新增PayAlibabaController
+2. 建立cloudalibaba-consumer-nacos-order83 模塊，YML 配置`spring.cloud.nacos`、`service-url.nacos-user-service`，新增RestTemplateConfig、OrderNacosController\
+3. 建立cloudalibaba-config-nacos-client3377 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-alibaba-nacos-config`、`spring-cloud-starter-bootstrap`，YML 配置`spring.cloud.nacos`，bootstrap.yml 配置`spring.profiles.active`，新增NacosConfigClientController
+
+## Sentinel
+## 
+

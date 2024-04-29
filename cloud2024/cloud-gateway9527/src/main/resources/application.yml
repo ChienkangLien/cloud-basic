@@ -23,9 +23,36 @@ spring:
           uri: lb://cloud-payment-service           # 匹配後提供服務的路由地址(動態)
           predicates:
             - Path=/pay/gateway/get/**              # 斷言，路徑相匹配的進行路由
+            
+            #各式predicate
+#            - After=2024-04-29T20:40:02.723852300+08:00[Asia/Taipei] # 在指定時間後可訪問
+#            - Before=2024-04-29T20:31:02.723852300+08:00[Asia/Taipei] # 在指定時間前可訪問
+#            - Between=2024-04-29T20:31:02.723852300+08:00[Asia/Taipei], 2024-04-29T21:31:02.723852300+08:00[Asia/Taipei] # 在指定時間間可訪問
+#            - Cookie=username, xxyy                 # cookie 帶有
+#            - Header=X-Request-Id, \d+              # 請求頭帶有
+#            - Host=**.somehost.org,**.anotherhost.org # 域名帶有
+#            - Query=green, \d+                      # 請求參數帶有(可不指定value)
+#            - RemoteAddr=192.168.191.1/24           # 外部訪問我的IP限制
+#            - Method=GET,POST                       # 方法限制
+            - My=gold                               # 自定義userType
+#            - name: My                              # 自定義userType
+#              args:
+#               userType: gold
  
-        - id: pay_getInfo                           # 路由的ID(類似mysql主鍵ID)，沒有固定規則但要求唯一，建議配合服務名
+        - id: pay_info                              # 路由的ID(類似mysql主鍵ID)，沒有固定規則但要求唯一，建議配合服務名
 #          uri: http://127.0.0.1:8001                # 匹配後提供服務的路由地址(寫死)
           uri: lb://cloud-payment-service           # 匹配後提供服務的路由地址(動態)
           predicates:
             - Path=/pay/gateway/info/**             # 斷言，路徑相匹配的進行路由
+        
+        - id: pay_filter                            # 路由的ID(類似mysql主鍵ID)，沒有固定規則但要求唯一，建議配合服務名
+          uri: lb://cloud-payment-service           #匹配後提供服務的路由地址
+          predicates:
+            - Path=/pay/gateway/filter/**           # 斷言，路徑相匹配的進行路由
+          filters:
+            - AddRequestHeader=X-Request-test1,testValue1  # 請求頭kv，若一頭含有多參則重寫一行設置
+            - AddRequestHeader=X-Request-test2,testValue2
+            - RemoveRequestHeader=sec-fetch-site    # 刪除請求頭sec-fetch-site
+            - SetRequestHeader=sec-fetch-mode, Updateby-zzyy # 將請求頭sec-fetch-mode對應的值修改為Updateby-zzyy
+            - AddRequestParameter=customerId,123456 #新增請求參數k,v
+            - RemoveRequestParameter=customerName   #刪除請求參數
