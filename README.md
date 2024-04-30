@@ -300,13 +300,17 @@ spring:
 
 ### 實作 Filter
 * 全局默認過濾器Global Filters：Gateway 默認已有的直接使用即可，主要作用於所有的路由，不需要在配置文件中配置，作用在所有的路由上，實現GlobalFilter接口即可
-* 單一內置過濾器GatewayFilter：也可以稱為網關過濾器，這種過濾器主要是作用於單一路由或者某個路由分組，總共有幾十個所以接下來只實作常見的
+* 單一內置過濾器GatewayFilter：也可以稱為網關過濾器，這種過濾器主要是作用於單一路由或者某個路由分組，總共有幾十個所以範例中只實作常見的
 
-#### AddRequestHeader
 1. cloud-provider-payment8001 修改PayGatewayController
 2. cloud-gateway9527 YUM 配置`spring.cloud.gateway.routes. - id: pay_filter`
-3. 驗證：9527/pay/gateway/filter?customerName=qq、9527/pay/gateway/filter?customerId=654321&customerName=qq
+3. 驗證：9527/pay/gateway/filter(測試請求頭)、9527/pay/gateway/filter?customerId=654321&customerName=xxyy(測試參數)、9527/gateway/info(路徑)、9527/XYZ/abc/info(路徑)
+4. cloud-gateway9527 YUM 配置`spring.cloud.gateway.default-filters`，全局通用
+5. 再驗證：9527/pay/gateway/filter
 
+#### 實作 自定義Global Filter
+1. cloud-gateway9527 新增MyGlobalFilter
+2. 驗證：9527/pay/gateway/filter
 
 ## Nacos
 ### 安裝
