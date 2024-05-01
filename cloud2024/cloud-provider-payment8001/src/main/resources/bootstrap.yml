@@ -11,7 +11,12 @@ spring:
         service-name: ${spring.application.name}
         heartbeat:
           enabled: true
-  ##spring cloud consul for service discovery
+  ##spring cloud consul for config
       config:
         profile-separator: '-' # 默認為","、改成常見的"-"
         format: YAML
+        
+# Consul端配置文件的命名規則是：
+# 根目錄config/，文件名data
+# ${spring.application.name}-${spring.profile.active}.${spring.cloud.nacos.config.file-extension}
+# 本案例:config/cloud-payment-service-dev/data.yaml

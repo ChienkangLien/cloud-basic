@@ -296,7 +296,7 @@ spring:
 繼承AbstractRoutePredicateFactory 抽象類或是實現RoutePredicateFactory 介面，類名以RoutePredicateFactory 結尾。
 1. cloud-gateway9527 新增MyRoutePredicateFactory
 2. YML 配置`spring.cloud.gateway.routes.predicate.My`
-3. 驗證：9527/pay/gateway/pay/get/2?userType=gold
+3. 驗證：9527/pay/gateway/get/2?userType=gold
 
 ### 實作 Filter
 * 全局默認過濾器Global Filters：Gateway 默認已有的直接使用即可，主要作用於所有的路由，不需要在配置文件中配置，作用在所有的路由上，實現GlobalFilter接口即可
@@ -304,21 +304,57 @@ spring:
 
 1. cloud-provider-payment8001 修改PayGatewayController
 2. cloud-gateway9527 YUM 配置`spring.cloud.gateway.routes. - id: pay_filter`
-3. 驗證：9527/pay/gateway/filter(測試請求頭)、9527/pay/gateway/filter?customerId=654321&customerName=xxyy(測試參數)、9527/gateway/info(路徑)、9527/XYZ/abc/info(路徑)
-4. cloud-gateway9527 YUM 配置`spring.cloud.gateway.default-filters`，全局通用
-5. 再驗證：9527/pay/gateway/filter
+3. 驗證：9527/pay/gateway/filter(測試請求頭、回應頭)、9527/pay/gateway/filter?customerId=654321&customerName=xxyy(測試參數)、9527/gateway/filter(路徑)、9527/XYZ/abc/filter(路徑)
+5. cloud-gateway9527 YUM 配置`spring.cloud.gateway.default-filters`，全局通用
+6. 再驗證：9527/pay/gateway/filter
 
 #### 實作 自定義Global Filter
 1. cloud-gateway9527 新增MyGlobalFilter
-2. 驗證：9527/pay/gateway/filter
+2. 驗證：9527/pay/gateway/filter、9527/pay/gateway/info、/pay/gateway/get/2
+
+#### 實作 自定義條件Filter
+繼承AbstractGatewayFilterFactory 抽象類或是實現GatewayFilterFactory 介面，類名以GatewayFilterFactory 結尾。
+1. cloud-gateway9527 新增MyGatewayFilterFactory
+2. YML 配置`spring.cloud.gateway.routes.predicate.My`
+3. 驗證：9527/pay/gateway/filter?pass
 
 ## Nacos
+Nacos = Spring Cloud Consul = Eureka + Config + Bus
+相較於Spring Cloud Consul，Nacos 默認是AP 模式
+
 ### 安裝
-### 實作 引入
-1. 建立cloudalibaba-provider-payment9001 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`cloud-api-commons`，YML 配置`spring.cloud.nacos`，啟動類`@EnableDiscoveryClient`，新增PayAlibabaController
-2. 建立cloudalibaba-consumer-nacos-order83 模塊，YML 配置`spring.cloud.nacos`、`service-url.nacos-user-service`，新增RestTemplateConfig、OrderNacosController\
-3. 建立cloudalibaba-config-nacos-client3377 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-alibaba-nacos-config`、`spring-cloud-starter-bootstrap`，YML 配置`spring.cloud.nacos`，bootstrap.yml 配置`spring.profiles.active`，新增NacosConfigClientController
+使用版本2.2.3
+1. 解壓後在bin 底下執行`startup.cmd -m standalone`
+2. 訪問 http://localhost:8848/nacos/
+3. 關閉`shutdown.cmd` 或是Ctrl + C
+### 實作 服務註冊
+1. 建立cloudalibaba-provider-payment9001 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`，YML 配置`spring.cloud.nacos`，啟動類`@EnableDiscoveryClient`，新增PayAlibabaController
+2. 複製出cloudalibaba-provider-payment9002 模塊
+3. 建立cloudalibaba-consumer-order83 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-loadbalancer`，YML 配置`spring.cloud.nacos`、`service-url.nacos-user-service`，啟動類`@EnableDiscoveryClient`，新增RestTemplateConfig、OrderNacosController
+4. 驗證：啟動Nacos、83/9001/9002，訪問83/consumer/pay/nacos/1
+
+### 實作 分布式配置
+1. cloudalibaba-provider-payment9001/cloudalibaba-provider-payment9002：POM 引入`spring-cloud-starter-alibaba-nacos-config`、`spring-cloud-starter-bootstrap`，YML 配置`spring.profiles.active`，bootstrap.yml 將application.yml 中關於spring cloud 內容一併移過去，修改PayAlibabaController
+2. cloudalibaba-consumer-order83 修改OrderNacosController
+3. 在Nacos 新建配置(Group DEFAULT_GROUP)：nacos-config-client-dev.yaml、nacos-config-client.yaml、nacos-config-client-prod.yaml
+4. 驗證：訪83/consumer/config/info
+
+Nacos 數據模型Key 由三元組唯一確定，Namespace(默認為public)、Group(默認為Group DEFAULT_GROUP)、Data ID
+5. 在Nacos 新建配置(Group PROD_GROUP)：nacos-config-client-dev.yaml、nacos-config-client.yaml、nacos-config-client-prod.yaml
+6. bootstrap.yml配置`spring.cloud.nacos.config.group`
+7. 再驗證：訪83/consumer/config/info
+8. 在Nacos 新建命名空間Prod_Namespace 並新建配置
+9. bootstrap.yml配置`spring.cloud.nacos.config.namespace`
+10. 再驗證：訪83/consumer/config/info
 
 ## Sentinel
-## 
+### 安裝
+使用版本1.8.7
+1. 執行`java -jar sentinel-dashboard-1.8.7.jar`
+2. 訪問UI http://localhost:8080/#/login ，默認帳密sentinel
+
+### 實作 引入
+1. 建立cloudalibaba-sentinel-service8401 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-alibaba-sentinel`，YML 配置`spring.cloud.nacos`、`spring.cloud.sentinel`，啟動類`@EnableDiscoveryClient`，新增FlowLimitController
+2. 驗證：啟動Nacos、Sentinel、8401，訪問8401/testB 和8401/testB，再查看控制台
+
 

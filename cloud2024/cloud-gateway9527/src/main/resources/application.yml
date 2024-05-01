@@ -34,8 +34,8 @@ spring:
 #            - Query=green, \d+                      # 請求參數帶有(可不指定value)
 #            - RemoteAddr=192.168.191.1/24           # 外部訪問我的IP限制
 #            - Method=GET,POST                       # 方法限制
-            - My=gold                               # 自定義userType
-#            - name: My                              # 自定義userType
+#            - My=gold                               # 自定義斷言
+#            - name: My                              # 自定義斷言
 #              args:
 #               userType: gold
  
@@ -49,19 +49,23 @@ spring:
           uri: lb://cloud-payment-service           #匹配後提供服務的路由地址
           predicates:
             - Path=/pay/gateway/filter/**           # 斷言，路徑相匹配的進行路由
-            - Path=/gateway/info/**                 # 為測試PrefixPath
-            - Path=/XYZ/abc/{segment}               # 為測試SetPath，{segment}的內容最後被SetPath取代
+#            - Path=/gateway/filter/**                 # 為測試PrefixPath
+#            - Path=/XYZ/abc/{segment}               # 為測試SetPath，{segment}的內容最後被SetPath取代
             
           filters:
-            - AddRequestHeader=X-Request-test1,testValue1  # 請求頭kv，若一頭含有多參則重寫一行設置
-            - AddRequestHeader=X-Request-test2,testValue2
-            - RemoveRequestHeader=sec-fetch-site    # 刪除請求頭sec-fetch-site
-            - SetRequestHeader=sec-fetch-mode, Updateby-zzyy # 將請求頭sec-fetch-mode對應的值修改為Updateby-zzyy
-            - AddRequestParameter=customerId,123456 # 新增請求參數k,v，若原請求有帶則會取代yml中的配置
-            - RemoveRequestParameter=customerName   # 刪除請求參數
-            - PrefixPath=/pay                       # PrefixPath + Path = /pay/gateway/info/**
-            - SetPath=/pay/gateway/{segment}        # {segment}表示占位符，/XYZ/abc/foo -> /pay/gateway/foo
-            - RedirectTo=302, https://www.google.com/ # 訪問/pay/gateway/filter跳轉到https://www.google.com/
+#            - AddRequestHeader=X-Request-test1,testValue1  # 請求頭kv，若一頭含有多參則重寫一行設置
+#            - AddRequestHeader=X-Request-test2,testValue2
+#            - RemoveRequestHeader=sec-fetch-site    # 刪除請求頭sec-fetch-site
+#            - SetRequestHeader=sec-fetch-mode, Updateby-zzyy # 將請求頭sec-fetch-mode對應的值修改為Updateby-zzyy
+#            - AddRequestParameter=customerId,123456 # 新增請求參數k,v，若原請求有帶則會取代yml中的配置
+#            - RemoveRequestParameter=customerName   # 刪除請求參數
+#            - AddResponseHeader=X-Response-test3, testValue3 # 新增回應頭
+#            - SetResponseHeader=Date,2099-11-11     # 設置回應頭Date值為2099-11-11
+#            - RemoveResponseHeader=Content-Type     # 將默認自帶Content-Type回應屬性刪除
+#            - PrefixPath=/pay                       # PrefixPath + Path = /pay/gateway/info/**
+#            - SetPath=/pay/gateway/{segment}        # {segment}表示占位符，/XYZ/abc/foo -> /pay/gateway/foo
+#            - RedirectTo=302, https://www.google.com/ # 訪問/pay/gateway/filter跳轉到https://www.google.com/
+            - My=pass                               # 自定義過濾器
             
-      default-filters: # 相當於全局通用
-      - AddRequestHeader=X-Request-test3,testValue3
+#      default-filters: # 相當於全局通用
+#      - AddRequestHeader=X-Request-test4,testValue4

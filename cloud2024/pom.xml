@@ -60,7 +60,7 @@
 				<artifactId>hutool-all</artifactId>
 				<version>${hutool.version}</version>
 			</dependency>
-			<!--micrometer-tracing �t�C�]  -->
+			<!--micrometer-tracing一系列包  -->
 			<dependency>
 				<groupId>io.micrometer</groupId>
 				<artifactId>micrometer-tracing-bom</artifactId>
@@ -103,6 +103,10 @@
 		<module>cloud-api-commons</module>
 		<module>cloud-consumer-feign-order80</module>
 		<module>cloud-gateway9527</module>
+		<module>cloudalibaba-provider-payment9001</module>
+		<module>cloudalibaba-provider-payment9002</module>
+		<module>cloudalibaba-consumer-order83</module>
+		<module>cloudalibaba-sentinel-service8401</module>
 	</modules>
 
 </project>
