@@ -351,10 +351,29 @@ Nacos 數據模型Key 由三元組唯一確定，Namespace(默認為public)、Gr
 ### 安裝
 使用版本1.8.7
 1. 執行`java -jar sentinel-dashboard-1.8.7.jar`
-2. 訪問UI http://localhost:8080/#/login ，默認帳密sentinel
+2. 訪問UI http://localhost:8080/ ，默認帳密sentinel
 
 ### 實作 引入
 1. 建立cloudalibaba-sentinel-service8401 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-alibaba-sentinel`，YML 配置`spring.cloud.nacos`、`spring.cloud.sentinel`，啟動類`@EnableDiscoveryClient`，新增FlowLimitController
-2. 驗證：啟動Nacos、Sentinel、8401，訪問8401/testB 和8401/testB，再查看控制台
+2. 驗證：啟動Nacos、Sentinel、8401，訪問8401/testA 和8401/testB，再查看控制台
 
+### 現流
 
+|  | 描述 |
+| -------- | -------- |
+| 資源名 | 資源的唯一名稱，默認是請求的接口路徑 |
+| 針對來源 | 具體針對某個微服務進行限流，莫認為default，表示不區分來源 |
+| 閥值類型 | 通過QPS 或是併發線程數 |
+| 單機閥值 | 為閥值類型的設定單位 |
+| 是否集群 | 選中則表示集群環境 |
+
+以下操作cloudalibaba-sentinel-service(http://localhost:8401/)
+流控規則
+1. 直接：默認的流控模式，當接口達到限流條件時，直接開啟限流功能。ex: 資源名/testA、QPS、3，限定每秒三次訪問/testA
+2. 關聯：當關聯的資源達到閾值時，就限流自己；當與A 關聯的資源B 達到閥值後，就限流A 自己。ex: 資源名/testA、QPS、3、關聯資源/testB，每秒三次訪問/testB 而限流/testA
+3. 鏈路：來自不同鏈路的請求對同一個目標訪問時，實施針對性的不同限流措施，比如C 請求來訪問就限流，D 請求來訪問就是OK。ex: cloudalibaba-sentinel-service8401 模塊新增FlowLimitService，修改FlowLimitController，YUM 配置`spring.cloud.sentinel.web-context-unify`；資源名common、QPS、3、入口資源/testC，每秒三次訪問/testC 限流/testC 而/testD 不管
+
+流控效果
+1. 快速失敗：默認的流控處理，直接拋出異常
+2. Warm Up：預熱模式，對超出閾值的請求同樣是拒絕並拋出異常。但這種模式閾值會動態變化，從一個較小值逐漸增加到最大閾值。請求閾值初始值是 threshold / coldFactor(默認值為3)，持續指定時長後，逐漸提高到threshold 值。ex: 資源名/testB、QPS 的threshold 為10，預熱時間為5秒，那麽初始閾值就是 10 / 3 ，也就是3，然後在5秒後逐漸增長到10。
+3. 排隊等待：讓所有請求進入一個隊列中，然後按照閾值允許的時間間隔依次執行。後來的請求必須等待前面執行完成，如果請求預期的等待時間超出最大時長，則會被拒絕。ex: 修改FlowLimitController、資源名/testE、QPS、1、超時時間10000ms
