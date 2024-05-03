@@ -10,7 +10,7 @@ import org.tutorial.resp.ReturnCodeEnum;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RestControllerAdvice
+@RestControllerAdvice // 驗證熔斷策略時需註解
 public class GlobalExceptionHandler {
 	
 	@ExceptionHandler(RuntimeException.class)
