@@ -2,6 +2,7 @@ package org.tutorial.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
@@ -46,4 +47,17 @@ public class RateLimitController {
 		System.out.println("JVM拋出的異常，服務降級：" + e);
 		return "JVM拋出的異常，服務降級：" + e.getMessage();
 	}
+
+	// 熱點規則
+	@GetMapping("/testHotKey")
+	@SentinelResource(value = "testHotKey", blockHandler = "testHotKeyBlockHandler")
+	public String testHotKey(@RequestParam(value = "p1", required = false) String p1,
+			@RequestParam(value = "p2", required = false) String p2) {
+		return "------testHotKey";
+	}
+
+	public String testHotKeyBlockHandler(String p1, String p2, BlockException exception) {
+		return "------testHotKey blockException";
+	}
+
 }
