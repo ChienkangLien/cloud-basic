@@ -14,3 +14,8 @@ spring:
 #消費者將要去訪問的微服務名稱(nacos微服務提供者叫什麽你寫什麽)
 service-url:
   nacos-user-service: http://nacos-payment-provider
+  
+#OpenFeign + Sentinel 集成
+feign:
+  sentinel:
+    enabled: true

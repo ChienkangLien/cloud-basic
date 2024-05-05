@@ -39,7 +39,7 @@ public class PayAlibabaController {
 	// fallback處理，納入到Feign 接口統一處理
 	@GetMapping("/pay/nacos/get/{orderNo}")
 	@SentinelResource(value = "getPayByOrderNo", blockHandler = "handlerBlockHandler")
-	public ResultData<String> getPayByOrderNo(@PathVariable("orderNo") String orderNo) {
+	public ResultData<PayDTO> getPayByOrderNo(@PathVariable("orderNo") String orderNo) {
 		
 		// 模擬從數據庫查詢出數據並賦值給DTO
 		PayDTO payDTO = new PayDTO();
@@ -49,7 +49,7 @@ public class PayAlibabaController {
 		payDTO.setPayNo("pay:" + IdUtil.fastUUID());
 		payDTO.setUserId(1);
 
-		return ResultData.success("查詢返回值：" + payDTO);
+		return ResultData.success(payDTO);
 	}
 
 	public ResultData<String> handlerBlockHandler(@PathVariable("orderNo") String orderNo, BlockException exception) {

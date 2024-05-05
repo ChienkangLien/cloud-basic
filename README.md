@@ -18,11 +18,14 @@
 服務網關：Gateway、~~Zuul~~
 分布式配置管理：Consul、Alibaba Nacos、~~Config + Bus~~
 
+* AP 模式：優先保證系統的可用性（Availability），即使在面臨網路分區（Partition）的情況下，系統仍然可以繼續運作。這種設計通常會犧牲一定程度的一致性（Consistency），即不同節點上的數據可能存在一段時間的不一致，但這種不一致是暫時的。
+* CP 模式：優先保證系統的一致性（Consistency），即確保所有節點上的資料在任何時候都是一致的。這種設計通常會犧牲一定程度的可用性（Availability），即在面臨網絡分區的情況下，系統可能無法繼續運作。
 ## 初始架構
 父工程：cloud2024
 微服務提供者，支付模塊：cloud-provider-payment8001
 微服物消費者，訂單模塊：cloud-consumer-order80
 自製工具包(使用前要先`maven install`成jar)：cloud-api-commons
+資料庫：db2024.sql
 
 ## Consul
 為什麼要引入服務註冊中心：實現微服務之間的動態註冊與發現。
@@ -233,7 +236,7 @@ Zipkin 是一種分布式鏈路跟蹤系統Web 圖形化的工具。
 2. cloud-provider-payment8001 POM：引入系列包(除了`micrometer-tracing-bom`)、YML配置：`management`、新增PayMicrometerController
 3. cloud-api-commons 修改PayFeignApi
 4. cloud-consumer-feign-order80 POM：引入系列包(除了`micrometer-tracing-bom`)、YML配置：`management`、新增OrderMicrometerController
-5. 驗證：啟動80/8001、Zipkin、Consul，micrometer/get/1，訪問http://127.0.0.1:9411/
+5. 驗證：啟動80/8001、Zipkin、Consul，micrometer/get/1，訪問 http://127.0.0.1:9411/
 
 ## Gateway
 為什麼不再使用Zuul：Zuul 也停止更新。
@@ -357,8 +360,7 @@ Nacos 數據模型Key 由三元組唯一確定，Namespace(默認為public)、Gr
 1. 建立cloudalibaba-sentinel-service8401 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-alibaba-sentinel`，YML 配置`spring.cloud.nacos`、`spring.cloud.sentinel`，啟動類`@EnableDiscoveryClient`，新增FlowLimitController
 2. 驗證：啟動Nacos、Sentinel、8401，訪問8401/testA 和8401/testB，再查看控制台
 
-### 現流
-
+### 限流
 |  | 描述 |
 | -------- | -------- |
 | 資源名 | 資源的唯一名稱，默認是請求的接口路徑 |
@@ -377,3 +379,166 @@ Nacos 數據模型Key 由三元組唯一確定，Namespace(默認為public)、Gr
 1. 快速失敗：默認的流控處理，直接拋出異常
 2. Warm Up：預熱模式，對超出閾值的請求同樣是拒絕並拋出異常。但這種模式閾值會動態變化，從一個較小值逐漸增加到最大閾值。請求閾值初始值是 threshold / coldFactor(默認值為3)，持續指定時長後，逐漸提高到threshold 值。ex: 資源名/testB、QPS 的threshold 為10，預熱時間為5秒，那麽初始閾值就是 10 / 3 ，也就是3，然後在5秒後逐漸增長到10。
 3. 排隊等待：讓所有請求進入一個隊列中，然後按照閾值允許的時間間隔依次執行。後來的請求必須等待前面執行完成，如果請求預期的等待時間超出最大時長，則會被拒絕。ex: 修改FlowLimitController、資源名/testE、QPS、1、超時時間10000ms
+
+限流返回，新增RateLimitController
+1. 默認返回。資源名/rateLimit/byUrl、閥值1，得到Blocked by Sentinel (flow limiting)
+2. 自定義返回。資源名byResourceWithSentinelResource、閥值1，得到自定返回
+3. 自定義返回 + 服務降級處理。資源名doActionWithSentinelResource、閥值1，自訂返回與降級處理共存
+
+### 熔斷
+* closed：關閉狀態，斷路器放行所有請求，並開始統計異常比例、慢請求比例。超過閾值則切換到open 狀態
+* open：開啟狀態，服務呼叫被熔斷，存取被熔斷服務的請求會被拒絕，快速失敗，直接走降級邏輯。open 狀態持續一段時間後會進入half-open 狀態
+* half-open：半開狀態，放行一次請求，根據執行結果來判斷接下來的操作。請求成功則切換到closed 狀態、 請求失敗則切換到open 狀態
+
+熔斷策略，修改FlowLimitController
+1. 慢調用比例：在統計時長內，實際請求數目＞設定的最小請求數且響應時間大於RT 且實際慢呼叫比例＞比例門檻。ex: 資源名/testF、最大RT 200ms、熔斷時長5s、統計時長5000ms、閥值0.1、最小請求數5，超過200ms 響應則為慢調用，一秒內超過比例0.1則進入5秒的熔斷狀態。
+2. 異常比例：異常比例＞比例門檻。ex: 資源名/testG、熔斷時長5s、統計時長5000ms、閥值0.1、最小請求數5，還須暫時關閉cloud-api-commons GlobalExceptionHandler `@RestControllerAdvice`
+3. 異常數：異常數＞閥值。ex: 資源名/testG、熔斷時長5s、統計時長5000ms、最小請求數5、異常數1，還須暫時關閉cloud-api-commons GlobalExceptionHandler `@RestControllerAdvice`
+
+### 熱點規則
+1. 修改RateLimitController
+2. 資源名testHotKey、參數索引0(從0開始)、閥值1、統計時長1s。驗證：8401/testHotKey?p1=a&p2=b
+3. 參數例外項：參數類型(基本類型或者String)String、參數值c、閥值3。驗證：8401/testHotKey?p1=c&p2=b
+
+### 授權規則
+在Sentinel的授權規則中，提供了白名單與黑名單兩種授權類型。
+1. 新增EmpowerController、MyRequestOriginParser
+2. 資源名/empower、流控應用test1、黑(白)名單。驗證：8401/empower?serverName=test1
+
+### 實作 持久化
+配置規則來自Nacos
+1. cloudalibaba-sentinel-service8401 模塊，POM 引入`sentinel-datasource-nacos`，修改YML `spring.cloud.sentinel.datasource`
+2. Nacos 新建配置cloudalibaba-sentinel-service
+```json=
+[
+    {
+        "resource": "/rateLimit/byUrl", #資源名稱
+        "limitApp": "default", #來源應用
+        "grade": 1, #閥值類型 0線程數 1QPS
+        "count": 1, #閥值
+        "strategy": 0, #流控模式 0直接 1關聯 2鏈路
+        "controlBehavior": 0, #流控效果 0快速失敗 1Warm up 2排隊等待
+        "clusterMode": false #是否集群
+    }
+]
+```
+3. 重啟8401，訪問8401/rateLimit/byUrl
+
+### 與OpenFeign 集成
+cloudalibaba-consumer-order83 透過OpenFeign 調用cloudalibaba-provider-payment9001 實現統一的fallback 服務降級
+1. cloudalibaba-provider-payment9001 模塊，POM 引入`spring-cloud-starter-openfeign`、`spring-cloud-starter-alibaba-sentinel`，bootstrap.yml 配置`spring.cloud.sentinel`，修改PayAlibabaController
+2. cloud-api-commons 模塊，POM 引入`spring-cloud-starter-alibaba-sentinel`，新增PayFeignSentinelApiFallback，新增PayFeignSentinelApi
+3. cloudalibaba-consumer-order83 模塊，POM 引入`spring-cloud-starter-openfeign`、`spring-cloud-starter-alibaba-sentinel`，YML 配置`feign.sentinel.enable`，啟動類`@EnableFeignClients`，修改OrderNacosController
+4. 調整版本：springboot + springcloud 版本太高，與Sentinel 不相容，父工程POM修改3.0.9/2022.0.2
+5. 驗證：啟動Nacos、Sentinel、9001/83，訪問83/consumer/pay/nacos/get/2
+6. Sentinel 新增流控規則(資源名getPayByOrderNo)
+7. 驗證流控保護，訪問83/consumer/pay/nacos/get/2
+8. 關閉9001
+9. 驗證熔斷，訪問83/consumer/pay/nacos/get/2
+
+驗證完恢復版本
+
+### 與Gateway 集成
+Sentinel 1.6.0 開始才提供Spring Cloud Gateway 的適配模塊。
+cloudalibaba-sentinel-gateway9528 保護cloudalibaba-provider-payment9001 實現服務限流(提前在gateway 就先擋下)
+1. 新增cloudalibaba-sentinel-gateway9528 模塊，POM 引入`spring-cloud-starter-gateway`、`sentinel-spring-cloud-gateway-adapter`、`sentinel-transport-simple-http`、`javax-anntation-api`，YML 配置`spring.cloud.nacos`、`spring.cloud.gateway`，啟動類`@EnableDiscoveryClient`，新增GatewayConfiguration
+3. 驗證：啟動Nacos、9001/9528，訪問：9528/pay/nacos/234
+
+## Seata
+* 本地事務：更多的是透過關聯式資料庫來控制事務，利用資料庫本身的事務特性來實現，因此叫資料庫事務；而資料庫通常和應用在同一個伺服器，所以又被稱為本地事務。
+* 分散式事務：分散式系統環境下由不同的服務之間透過網路遠端協作完成事務稱為分散式事務。
+
+分布式事務產生的場景
+1. 微服務架構，例如：訂單微服務和庫存微服務，下單的同時訂單微服務請求庫存微服務減庫存。簡言之：跨JVM 進程產生分布式事務。
+2. 單體系統存取多個資料庫執行個體，例如：使用者資訊和訂單資訊分別在兩個MySQL 實例存儲，使用者管理系統刪除使用者訊息，需要分別刪除使用者資訊及使用者的訂單訊息。簡言之：跨資料庫執行個體產生分布式事務。
+3. 多服務存取同一個資料庫實例，例如：訂單微服務和庫存微服務即使存取同一個資料庫也會產生分散式事務，原因也是跨JVM進程。
+
+在Seata 的事務管理中有三個重要的角色
+1. TC (Transaction Coordinator) - 事務協調者：就是Seata，維護全局和分支事務的狀態，驅動全局事務提交或回滾。
+2. TM (Transaction Manager) - 事務管理器：標註`@GlobalTransactional`的微服務模組，它是事務的發起者，定義全局事務的範圍、並根據TC 維護的全局事務和分支事務狀態，做出開始、提交、回滾事務的決議。
+3. RM (Resource Manager) - 資源管理器：就是資料庫本身(可以有多個)，管理分支事務，與TC 交談以註冊分支事務和報告分支事務的狀態，並驅動分支事務提交或回滾。
+
+TC 以Seata 服務器(Server)型式獨立部屬，TM 和RM 則以Seata 客戶端的型式集成在微服務中運行。流程：
+1. TM 向TC 申請開啟一個全局事務，全局事務創建成功並生成一個全局唯一的 XID
+2. XID 在微服務調用鏈路的上下文中傳播
+3. RM 向TC 註冊分之事務，將其納入XID 對應全局事務的管轄
+4. TM 向TC 發起針對XID 的全局提交或回滾決議
+5. TC 調度XID 下管轄的全部分之事務完成提交或回滾請求
+
+Seata 有四種事務模式，在此只實作主流的AT 模式
+
+### 安裝
+使用版本2.0.0
+1. 執行seata.sql
+1. 解壓後更改配置，修改seata\conf\application.yml
+```yaml=
+server:
+  port: 7091
+
+spring:
+  application:
+    name: seata-server
+
+logging:
+  config: classpath:logback-spring.xml
+  file:
+    path: ${log.home:${user.home}/logs/seata}
+  extend:
+    logstash-appender:
+      destination: 127.0.0.1:4560
+    kafka-appender:
+      bootstrap-servers: 127.0.0.1:9092
+      topic: logback_to_logstash
+
+console:
+  user:
+    username: seata
+    password: seata
+    
+seata:
+  config:
+    type: nacos
+    nacos:
+      server-addr: 127.0.0.1:8848
+      namespace:
+      group: SEATA_GROUP #後續自己在nacos裡面新建，不想新建SEATA_GROUP就寫DEFAULT_GROUP
+      username: nacos
+      password: nacos
+  registry:
+    type: nacos
+    nacos:
+      application: seata-server
+      server-addr: 127.0.0.1:8848
+      group: SEATA_GROUP #後續自己在nacos裡面新建，不想新建SEATA_GROUP就寫DEFAULT_GROUP
+      namespace:
+      cluster: default
+      username: nacos
+      password: nacos
+  store:
+    mode: db
+    db:
+      datasource: druid
+      db-type: mysql
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://127.0.0.1:3306/seata?characterEncoding-utf8&useSSL=false&rewriteBatchedStatements=true&allowPublicRetrieval=true&serverTimezone=Asia/Taipei
+      user: root
+      password: password
+      min-conn: 10
+      max-conn: 100
+      global-table: global_table
+      branch-table: branch_table
+      lock-table: lock_table
+      distributed-lock-table: distributed_lock
+      query-limit: 1000
+      max-wait: 5000
+  security:
+    secretKey: SeataSecretKey0c382ef121d778043159209298fd40bf3850a017
+    tokenValidityInMilliseconds: 1800000
+    ignore:
+      urls: /,/**/*.css,/**/*.js,/**/*.html,/**/*.map,/**/*.svg,/**/*.png,/**/*.jpeg,/**/*.ico,/api/v1/auth/login,/metadata/v1/**
+```
+2. 啟動Nacos、再啟動Seata (bin下執行`seata-server.bat`)
+3. 驗證：seata-server 入住Nacos，訪問 http://localhost:7091 (默認帳密seata)
+
+### 實作
+模擬一個購物場景：總共涉及訂單、庫存、帳戶服務。用戶下單後，產生訂單，並遠端呼叫扣減對應的庫存和帳戶餘額。

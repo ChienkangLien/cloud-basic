@@ -4,7 +4,8 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 
 import org.hibernate.annotations.Generated;
-import org.hibernate.generator.EventType;
+//import org.hibernate.generator.EventType;
+import org.hibernate.annotations.GenerationTime;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -44,12 +45,14 @@ public class Pay {
 	private Integer deleted;
 
 	@Schema(title = "創建時間")
-	@Generated(event = EventType.INSERT)
+//	@Generated(event = EventType.INSERT) // springboot 3.2.0
+	@Generated(value = GenerationTime.INSERT) // springboot 3.0.9
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private Timestamp createTime;
 
 	@Schema(title = "更新時間")
-	@Generated(event = EventType.INSERT)
+//	@Generated(event = EventType.INSERT) // springboot 3.2.0
+	@Generated(value = GenerationTime.INSERT) // springboot 3.0.9
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private Timestamp updateTime;
 

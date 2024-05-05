@@ -1,0 +1,20 @@
+server:
+  port: 9528
+ 
+spring:
+  application:
+    name: cloudalibaba-sentinel-gateway
+    
+  ##Nacos for service discovery
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848 #配置Nacos地址
+        
+    ##spring cloud gateway
+    gateway:
+      routes:
+        - id: pay_routh1 #pay_routh1                #路由的ID(類似mysql主鍵ID)，沒有固定規則但要求唯一，建議配合服務名
+          uri: http://localhost:9001                #匹配後提供服務的路由地址(寫死)
+          predicates:
+          - Path=/pay/**                            # 斷言，路徑相匹配的進行路由
