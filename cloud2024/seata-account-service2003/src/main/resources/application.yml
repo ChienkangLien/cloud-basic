@@ -1,0 +1,36 @@
+server:
+  port: 2003
+
+spring:
+  application:
+    name: seata-account-service
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+  datasource:
+    url: jdbc:mysql://localhost:3306/seata_account?serverTimezone=Asia/Taipei
+    username: root
+    password: password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    show-sql: true
+    
+seata:
+  registry:
+    type: nacos
+    nacos:
+      server-addr: localhost:8848
+      namespace: ""
+      group: SEATA_GROUP
+      application: seata-server
+  tx-service-group: default_tx_group #事務組，由它獲得TC服務的集群名稱
+  service:
+    vgroup-mapping:
+      default_tx_group: default #事務組與TC服務集群的映射關係
+  data-source-proxy-mode: AT #默認也是AT
+
+logging:
+  level:
+    io:
+      seata: info

@@ -12,14 +12,14 @@ CREATE TABLE IF NOT EXISTS `undo_log`
     UNIQUE KEY `ux_undo_log` (`xid`, `branch_id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COMMENT ='AT transaction mode undo table';
 ALTER TABLE `undo_log` ADD INDEX `ix_log_created` (`log_created`);
-CREATE TABLE `t_order`  (
+CREATE TABLE `t_account`  (
   `id` bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `user_id` bigint NULL DEFAULT NULL COMMENT '用戶ID',
-  `product_id` bigint NULL DEFAULT NULL COMMENT '產品ID',
-  `count` int NULL DEFAULT NULL COMMENT '數量',
-  `money` decimal(11, 0) NULL DEFAULT NULL COMMENT '金額',
-  `status` int NULL DEFAULT NULL COMMENT '訂單狀態: 0:創建中, 1:已完結'
+  `total` decimal(11, 0) NULL DEFAULT NULL COMMENT '總額度',
+  `used` decimal(11, 0) NULL DEFAULT NULL COMMENT '已用帳戶餘額',
+  `residue` decimal(11, 0) NULL DEFAULT NULL COMMENT '餘額'
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+INSERT INTO `t_account` (id, user_id, total, used, residue) VALUES (1, 1, 1000, 0, 1000);
 
 create database `seata_order`;
 use `seata_order`;
@@ -35,14 +35,14 @@ CREATE TABLE IF NOT EXISTS `undo_log`
     UNIQUE KEY `ux_undo_log` (`xid`, `branch_id`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COMMENT ='AT transaction mode undo table';
 ALTER TABLE `undo_log` ADD INDEX `ix_log_created` (`log_created`);
-CREATE TABLE `t_account`  (
+CREATE TABLE `t_order`  (
   `id` bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `user_id` bigint NULL DEFAULT NULL COMMENT '用戶ID',
-  `total` decimal(11, 0) NULL DEFAULT NULL COMMENT '總額度',
-  `used` decimal(11, 0) NULL DEFAULT NULL COMMENT '已用帳戶餘額',
-  `residue` decimal(11, 0) NULL DEFAULT NULL COMMENT '餘額'
+  `product_id` bigint NULL DEFAULT NULL COMMENT '產品ID',
+  `count` int NULL DEFAULT NULL COMMENT '數量',
+  `money` decimal(11, 0) NULL DEFAULT NULL COMMENT '金額',
+  `status` int NULL DEFAULT NULL COMMENT '訂單狀態: 0:創建中, 1:已完結'
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
-INSERT INTO `t_account` (id, user_id, total, used, residue) VALUES (1, 1, 1000, 0, 1000);
 
 create database `seata_storage`;
 use `seata_storage`;
