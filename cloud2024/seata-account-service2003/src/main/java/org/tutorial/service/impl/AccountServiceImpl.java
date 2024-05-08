@@ -22,9 +22,9 @@ public class AccountServiceImpl implements AccountService {
 		log.info("------------->AccountService 開始扣減餘額");
 
 		// 超時異常
-//         timeout();
+//		timeout();
 		// 拋出異常
-//         int i = 10 / 0;
+//		int i = 10 / 0;
 	}
 
 	private void timeout() {

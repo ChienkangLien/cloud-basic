@@ -9,6 +9,7 @@ import org.tutorial.repositories.OrderRepository;
 import org.tutorial.service.OrderService;
 
 import io.seata.core.context.RootContext;
+import io.seata.spring.annotation.GlobalTransactional;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
@@ -22,6 +23,7 @@ public class OrderServiceImpl implements OrderService {
 	private AccountFeignApi accountFeignApi; // 訂單微服務通過OpenFeign調用帳戶微服務
 
 	@Override
+	@GlobalTransactional(name = "my-create-order", rollbackFor = Exception.class)
 	public void create(Order order) {
 		// xid全局事務id檢查
 		String xid = RootContext.getXID();

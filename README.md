@@ -332,12 +332,11 @@ Nacos = Spring Cloud Consul = Eureka + Config + Bus
 3. 關閉`shutdown.cmd` 或是Ctrl + C
 ### 實作 服務註冊
 1. 建立cloudalibaba-provider-payment9001 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`，YML 配置`spring.cloud.nacos`，啟動類`@EnableDiscoveryClient`，新增PayAlibabaController
-2. 複製出cloudalibaba-provider-payment9002 模塊
-3. 建立cloudalibaba-consumer-order83 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-loadbalancer`，YML 配置`spring.cloud.nacos`、`service-url.nacos-user-service`，啟動類`@EnableDiscoveryClient`，新增RestTemplateConfig、OrderNacosController
-4. 驗證：啟動Nacos、83/9001/9002，訪問83/consumer/pay/nacos/1
+2. 建立cloudalibaba-consumer-order83 模塊，POM 引入`spring-boot-starter-web`、`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-loadbalancer`，YML 配置`spring.cloud.nacos`、`service-url.nacos-user-service`，啟動類`@EnableDiscoveryClient`，新增RestTemplateConfig、OrderNacosController
+3. 驗證：啟動Nacos、83/9001/從9001 run configurations override properties `server.port=9002`，訪問83/consumer/pay/nacos/1
 
 ### 實作 分布式配置
-1. cloudalibaba-provider-payment9001/cloudalibaba-provider-payment9002：POM 引入`spring-cloud-starter-alibaba-nacos-config`、`spring-cloud-starter-bootstrap`，YML 配置`spring.profiles.active`，bootstrap.yml 將application.yml 中關於spring cloud 內容一併移過去，修改PayAlibabaController
+1. cloudalibaba-provider-payment9001：POM 引入`spring-cloud-starter-alibaba-nacos-config`、`spring-cloud-starter-bootstrap`，YML 配置`spring.profiles.active`，bootstrap.yml 將application.yml 中關於spring cloud 內容一併移過去，修改PayAlibabaController
 2. cloudalibaba-consumer-order83 修改OrderNacosController
 3. 在Nacos 新建配置(Group DEFAULT_GROUP)：nacos-config-client-dev.yaml、nacos-config-client.yaml、nacos-config-client-prod.yaml
 4. 驗證：訪83/consumer/config/info
@@ -542,3 +541,25 @@ seata:
 
 ### 實作
 模擬一個購物場景：總共涉及訂單、庫存、帳戶服務。用戶下單後，產生訂單，並遠端呼叫扣減對應的庫存和帳戶餘額。
+
+1. 執行seata_service.sql
+2. cloud-api-commons 新增StorageFeignApi、AccountFeignApi
+3. 新增seata-order-service2001 模塊，POM 引入`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-alibaba-seata`、`spring-cloud-starter-openfeign`、`spring-cloud-starter-loadbalancer`，YML 配置`spring.cloudnacos`、`seata`、`logging`，啟動類`@EnableDiscoveryClient`、`@EnableFeignClients`，新增Order、OrderRepository、OrderService、OrderServiceImpl、OrderController
+4. 新增seata-storage-service2002 模塊，POM 引入`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-alibaba-seata`、`spring-cloud-starter-openfeign`、`spring-cloud-starter-loadbalancer`，YML 配置`spring.cloudnacos`、`seata`、`logging`，啟動類`@EnableDiscoveryClient`、`@EnableFeignClients`，新增Storage、StorageRepository、StorageService、StorageServiceImpl、StorageController
+5. 新增seata-account-service2003 模塊，POM 引入`spring-cloud-starter-alibaba-nacos-discovery`、`spring-cloud-starter-alibaba-seata`、`spring-cloud-starter-openfeign`、`spring-cloud-starter-loadbalancer`，YML 配置`spring.cloudnacos`、`seata`、`logging`，啟動類`@EnableDiscoveryClient`、`@EnableFeignClients`，新增Account、AccountRepository、AccountService、AccountServiceImpl、AccountController
+6. 驗證：啟動Nacos、Seata、2001/2002/2003，下訂單2001/order/create?userId=1&productId=1&count=10&money=100 1號用戶花了100塊買了10個1號產品
+7. 修改seata-account-service2003 AccountServiceImpl，添加超時邏輯和運行異常，分別再次請求下單
+8. 修改seata-order-service2001 OrderServiceImpl，增加`@GlobalTransactional`，保留超時邏輯，再次下單並觀察資料庫及Seata console
+
+業務中資料仍會新增進資料庫，遇異常回滾錯誤資料會移除；undo_log 會有相關的分支資料直到提交或回滾。
+
+### AT 模式二階段提交
+在一階段中，Seata 會攔截"業務SQL"
+1. 解析SQL 語意，找到"業務SQL"要更新的業務數據，在業務數據被更新前，將其保存成"before image"
+2. 執行"業務SQL"更新業務數據，在業務數據更新之後
+3. 其保存成"after image"，最後生成行鎖
+
+以上操作全部都在一個資料庫事務內完成，保證了一階段操作的原子性。
+
+二階段，正常提交：因為"業務SQL"在一階段已經提交給資料庫，所以Seata 只需將一階段保存的快照和行鎖刪除，完成數據清理即可。
+二階段，異常回滾：Seata 需要回滾一階段已經執行的"業務SQL"，透過"before image"校驗髒寫，對比資料庫當前業務數據和"after image"，如果兩份數據一致就說明沒有髒寫、可以還原業務數據；如果不一致就說明有髒寫、需要人工處理。
